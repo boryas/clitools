@@ -6,49 +6,118 @@
 #include <string.h>
 #include <sys/types.h>
 
-struct dirq {
-  char *q[100];
-  int front;
-  int back;
+struct rcli {
+  char *dir;
+  size_t sz;
+  struct rcli *subclis;
 };
 
-int dirq_sz(struct dirq *dq) {
-  return dq->back - dq->front;
-}
+int count_subclis(struct rcli *cli) {
+  int ret = 0;
+  DIR *dir;
+  struct dirent *dent;
 
-char *dirq_pop(struct dirq *dq) {
-  char *ret = dq->q[dq->front % 100];
-  printf("popped %s from %d, set front to %d\n", ret, dq->front, dq->front + 1);
-  ++dq->front;
-  if (dq->front == dq->back) {
-    printf("front caught back, reset it all\n");
-    dq->front = 0;
-    dq->back = 0;
+  dir = opendir(cli->dir);
+  if (!dir) {
+    return -errno;
   }
+  while (true) {
+    errno = 0;
+    dent = readdir(dir);
+    if (!dent) {
+      if (errno) {
+        ret = -errno;
+        goto out;
+      }
+      break;
+    }
+    if (dent->d_type == DT_DIR) {
+      if (!strcmp(dent->d_name, "..") || !strcmp(dent->d_name, ".")) {
+        continue;
+      }
+      ++ret;
+    }
+  }
+out:
+  closedir(dir);
   return ret;
 }
 
-/*
- * return 1 on overflow, 0 on success
- */
-int dirq_push(struct dirq *dq, char *dir) {
-  if (dirq_sz(dq) > 0 && dq->back % 100 == dq->front % 100) {
-    return 1;
+int get_subclis(struct rcli *cli) {
+  int ret = 0;
+  int i = 0;
+  DIR *dir;
+  struct dirent *dent;
+
+  dir = opendir(cli->dir);
+  if (!dir) {
+    exit(errno);
   }
-  dq->q[dq->back % 100] = dir;
-  printf("pushed %s to %d, set back to %d\n", dir, dq->back, dq->back + 1);
-  ++dq->back;
+  while (true) {
+    errno = 0;
+    dent = readdir(dir);
+    if (!dent) {
+      if (errno) {
+        ret = -errno;
+        goto out;
+      }
+      break;
+    }
+    if (dent->d_type == DT_DIR) {
+      if (!strcmp(dent->d_name, "..") || !strcmp(dent->d_name, ".")) {
+        continue;
+      }
+      cli->subclis[i].dir = malloc(strlen(cli->dir) + strlen(dent->d_name) + 1);
+      if (!cli->subclis[i].dir) {
+        ret = -ENOMEM;
+        goto out;
+      }
+      cli->subclis[i].dir = strcpy(cli->subclis[i].dir, cli->dir);
+      cli->subclis[i].dir = strcat(cli->subclis[i].dir, "/");
+      cli->subclis[i].dir = strcat(cli->subclis[i].dir, dent->d_name);
+      ++i;
+    }
+  }
+out:
+  closedir(dir);
+  return ret;
+}
+
+int rcli_populate(struct rcli *cli) {
+  int ret;
+  int i = 0;
+
+  printf("rcli_populate %s\n", cli->dir);
+
+  ret = count_subclis(cli);
+  if (ret < 0) {
+    return ret;
+  }
+  cli->sz = ret;
+  cli->subclis = malloc(cli->sz * sizeof(struct rcli));
+  if (!cli->subclis) {
+    return -ENOMEM;
+  }
+
+  ret = get_subclis(cli);
+  if (ret < 0) {
+    return ret;
+  }
+
+  for (i = 0; i < cli->sz; ++i) {
+    ret = rcli_populate(&cli->subclis[i]);
+    if (ret < 0) {
+      return ret;
+    }
+  }
   return 0;
 }
 
 int main(int argc, char *argv[]) {
   char *name;
-  DIR *dir;
-  struct dirent *dent;
-  struct dirq dq;
-  char *new_dir;
+  struct rcli cli;
 
-  memset(&dq, 0, sizeof(dq));
+  memset(&cli, 0, sizeof(cli));
 
   if (argc != 2) {
     printf("usage: rcli <CLI-DIR>\n");
@@ -60,39 +129,7 @@ int main(int argc, char *argv[]) {
     exit(ENOMEM);
   }
   name = strcpy(name, argv[1]);
-  dirq_push(&dq, name);
-  while (dirq_sz(&dq)) {
-    name = dirq_pop(&dq);
-    dir = opendir(name);
-    if (!dir) {
-      exit(errno);
-    }
-    printf("popped a dir: %s\n", name);
+  cli.dir = name;
 
-    errno = 0;
-    while(dent = readdir(dir)) {
-      if (dent->d_type == DT_DIR) {
-        if (!strcmp(dent->d_name, "..") || !strcmp(dent->d_name, ".")) {
-          continue;
-        }
-        new_dir = malloc(strlen(name) + 1);
-        if (!new_dir) {
-          exit(ENOMEM);
-        }
-        new_dir = strcpy(new_dir, name);
-        new_dir = strcat(new_dir, "/");
-        new_dir = strcat(new_dir, dent->d_name);
-        if (dirq_push(&dq, new_dir)) {
-          exit(EINVAL);
-        }
-        printf("pushed a directory: %s\n", new_dir);
-      }
-      errno = 0;
-    }
-    if (errno) {
-      // TODO nice error handling
-      printf("error in readdir: %d\n", errno);
-      exit(errno);
-    }
-  }
+  return rcli_populate(&cli);
 }
