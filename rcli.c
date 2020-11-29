@@ -12,21 +12,22 @@ struct rcli {
   struct rcli *subclis;
 };
 
-int count_subclis(struct rcli *cli) {
+int rcli_traverse(struct rcli *cli, int (*dir_op)(struct rcli*, struct dirent*, int i)) {
   int ret = 0;
   DIR *dir;
   struct dirent *dent;
+  int i = 0;
 
   dir = opendir(cli->dir);
   if (!dir) {
-    return -errno;
+    return errno;
   }
   while (true) {
     errno = 0;
     dent = readdir(dir);
     if (!dent) {
       if (errno) {
-        ret = -errno;
+        ret = errno;
         goto out;
       }
       break;
@@ -35,7 +36,11 @@ int count_subclis(struct rcli *cli) {
       if (!strcmp(dent->d_name, "..") || !strcmp(dent->d_name, ".")) {
         continue;
       }
-      ++ret;
+      ret = dir_op(cli, dent, i);
+      if (ret) {
+        goto out;
+      }
+      ++i;
     }
   }
 out:
@@ -43,44 +48,28 @@ out:
   return ret;
 }
 
-int get_subclis(struct rcli *cli) {
-  int ret = 0;
-  int i = 0;
-  DIR *dir;
-  struct dirent *dent;
+int rcli_inc_sz(struct rcli *cli, struct dirent *dent, int i) {
+  ++cli->sz;
+  return 0;
+}
 
-  dir = opendir(cli->dir);
-  if (!dir) {
-    exit(errno);
+int rcli_add_subcli(struct rcli *cli, struct dirent *dent, int i) {
+  cli->subclis[i].dir = malloc(strlen(cli->dir) + strlen(dent->d_name) + 1);
+  if (!cli->subclis[i].dir) {
+    return ENOMEM;
   }
-  while (true) {
-    errno = 0;
-    dent = readdir(dir);
-    if (!dent) {
-      if (errno) {
-        ret = -errno;
-        goto out;
-      }
-      break;
-    }
-    if (dent->d_type == DT_DIR) {
-      if (!strcmp(dent->d_name, "..") || !strcmp(dent->d_name, ".")) {
-        continue;
-      }
-      cli->subclis[i].dir = malloc(strlen(cli->dir) + strlen(dent->d_name) + 1);
-      if (!cli->subclis[i].dir) {
-        ret = -ENOMEM;
-        goto out;
-      }
-      cli->subclis[i].dir = strcpy(cli->subclis[i].dir, cli->dir);
-      cli->subclis[i].dir = strcat(cli->subclis[i].dir, "/");
-      cli->subclis[i].dir = strcat(cli->subclis[i].dir, dent->d_name);
-      ++i;
-    }
-  }
-out:
-  closedir(dir);
-  return ret;
+  cli->subclis[i].dir = strcpy(cli->subclis[i].dir, cli->dir);
+  cli->subclis[i].dir = strcat(cli->subclis[i].dir, "/");
+  cli->subclis[i].dir = strcat(cli->subclis[i].dir, dent->d_name);
+  return 0;
+}
+
+int count_subclis(struct rcli *cli) {
+  return rcli_traverse(cli, rcli_inc_sz);
+}
+
+int get_subclis(struct rcli *cli) {
+  return rcli_traverse(cli, rcli_add_subcli);
 }
 
 int rcli_populate(struct rcli *cli) {
@@ -93,10 +82,9 @@ int rcli_populate(struct rcli *cli) {
   if (ret < 0) {
     return ret;
   }
-  cli->sz = ret;
-  cli->subclis = malloc(cli->sz * sizeof(struct rcli));
+  cli->subclis = calloc(cli->sz, sizeof(struct rcli));
   if (!cli->subclis) {
-    return -ENOMEM;
+    return ENOMEM;
   }
 
   ret = get_subclis(cli);
@@ -116,6 +104,7 @@ int rcli_populate(struct rcli *cli) {
 int main(int argc, char *argv[]) {
   char *name;
   struct rcli cli;
+  int ret = 0;
 
   memset(&cli, 0, sizeof(cli));
 
@@ -131,5 +120,8 @@ int main(int argc, char *argv[]) {
   name = strcpy(name, argv[1]);
   cli.dir = name;
 
-  return rcli_populate(&cli);
+  ret = rcli_populate(&cli);
+  if (ret) {
+    exit(ret);
+  }
 }
