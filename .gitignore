@@ -19,6 +19,7 @@ Makefile
 *.a
 
 # Binaries
+rcli
 
 # ctags
 tags
