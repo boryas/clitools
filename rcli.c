@@ -12,8 +12,31 @@ struct rcli {
   char *path;
   char *name;
   size_t sz;
-  struct rcli *subclis;
+  struct rcli *sub_clis;
 };
+
+static char *get_basename(char *path) {
+  char *cpy;
+  char *bn;
+  char *ret;
+  int path_len = strlen(path);
+
+  cpy = malloc(path_len);
+  if (!cpy) {
+    return NULL;
+  }
+  cpy = strcpy(cpy, path);
+  bn = basename(cpy);
+  ret = malloc(strlen(bn));
+  if (!ret) {
+    ret = NULL;
+    goto out;
+  }
+  ret = strcpy(ret, bn);
+out:
+  free(cpy);
+  return ret;
+}
 
 int rcli_init(struct rcli *cli, char *path) {
   char *cpy;
@@ -21,31 +44,22 @@ int rcli_init(struct rcli *cli, char *path) {
   int path_len = strlen(path);
   int ret;
 
+  memset(cli, 0, sizeof(*cli));
+
   cli->path = malloc(path_len);
   if (!cli->path) {
     ret = ENOMEM;
     goto out;
   }
   cli->path = strcpy(cli->path, path);
-
-  cpy = malloc(path_len);
-  if (!cpy) {
-    ret = ENOMEM;
+  cli->name = get_basename(path);
+  if (!cli->name) {
     goto free_path;
   }
-  cpy = strcpy(cpy, path);
-  name = basename(cpy);
-  cli->name = malloc(strlen(name));
-  if (!cli->name) {
-    ret = ENOMEM;
-    goto free_cpy;
-  }
-  cli->name = strcpy(cli->name, name);
+
   ret = 0;
   goto out;
 
-free_cpy:
-  free(cpy);
 free_path:
   free(cli->path);
 out:
@@ -88,35 +102,34 @@ out:
   return ret;
 }
 
-int rcli_inc_sz(struct rcli *cli, struct dirent *dent, int i) {
+int rcli_op_inc_sz(struct rcli *cli, struct dirent *dent, int i) {
   ++cli->sz;
   return 0;
 }
 
-int rcli_add_subcli(struct rcli *cli, struct dirent *dent, int i) {
-  // TODO refactor and use rcli_init
-  cli->subclis[i].path = malloc(strlen(cli->path) + strlen(dent->d_name) + 1);
-  if (!cli->subclis[i].path) {
+int rcli_op_add_subcli(struct rcli *cli, struct dirent *dent, int i) {
+  int ret;
+  char *path = malloc(strlen(cli->path) + strlen(dent->d_name) + 1);
+
+  if (!path) {
     return ENOMEM;
   }
-  cli->subclis[i].path = strcpy(cli->subclis[i].path, cli->path);
-  cli->subclis[i].path = strcat(cli->subclis[i].path, "/");
-  cli->subclis[i].path = strcat(cli->subclis[i].path, dent->d_name);
+  path = strcpy(path, cli->path);
+  path = strcat(path, "/");
+  path = strcat(path, dent->d_name);
 
-  cli->subclis[i].name = malloc(strlen(dent->d_name));
-  if (!cli->subclis[i].name) {
-    return ENOMEM;
-  }
-  cli->subclis[i].name = strcpy(cli->subclis[i].name, dent->d_name);
-  return 0;
+  ret = rcli_init(&cli->sub_clis[i], path);
+
+  free(path);
+  return ret;
 }
 
-int count_subclis(struct rcli *cli) {
-  return rcli_traverse(cli, rcli_inc_sz);
+static int count_sub_clis(struct rcli *cli) {
+  return rcli_traverse(cli, rcli_op_inc_sz);
 }
 
-int get_subclis(struct rcli *cli) {
-  return rcli_traverse(cli, rcli_add_subcli);
+static int get_sub_clis(struct rcli *cli) {
+  return rcli_traverse(cli, rcli_op_add_subcli);
 }
 
 int rcli_populate(struct rcli *cli) {
@@ -125,22 +138,22 @@ int rcli_populate(struct rcli *cli) {
 
   printf("rcli_populate %s\n", cli->path);
 
-  ret = count_subclis(cli);
+  ret = count_sub_clis(cli);
   if (ret < 0) {
     return ret;
   }
-  cli->subclis = calloc(cli->sz, sizeof(struct rcli));
-  if (!cli->subclis) {
+  cli->sub_clis = calloc(cli->sz, sizeof(struct rcli));
+  if (!cli->sub_clis) {
     return ENOMEM;
   }
 
-  ret = get_subclis(cli);
+  ret = get_sub_clis(cli);
   if (ret < 0) {
     return ret;
   }
 
   for (i = 0; i < cli->sz; ++i) {
-    ret = rcli_populate(&cli->subclis[i]);
+    ret = rcli_populate(&cli->sub_clis[i]);
     if (ret < 0) {
       return ret;
     }
@@ -153,8 +166,8 @@ struct rcli *rcli_find_subcli(struct rcli *cli, int argc, char *argv[]) {
 
   for (int i = optind; i < argc; ++i) {
     for (int j = 0; j < cur->sz; ++j) {
-      if (!strcmp(cur->subclis[j].name, argv[i])) {
-        cur = &cur->subclis[j];
+      if (!strcmp(cur->sub_clis[j].name, argv[i])) {
+        cur = &cur->sub_clis[j];
         break;
       }
     }
@@ -200,8 +213,6 @@ int main(int argc, char *argv[]) {
   char *name;
   struct rcli cli;
   int ret = 0;
-
-  memset(&cli, 0, sizeof(cli));
 
   if (argc < 2) {
     printf("usage: rcli <CLI-DIR> [command]\n");
