@@ -44,6 +44,11 @@ int rcli_init(struct rcli *cli, char *path) {
   int path_len = strlen(path);
   int ret;
 
+  if (!cli) {
+    ret = EINVAL;
+    goto out;
+  }
+
   memset(cli, 0, sizeof(*cli));
 
   cli->path = malloc(path_len);
@@ -64,6 +69,20 @@ free_path:
   free(cli->path);
 out:
   return ret;
+}
+
+void rcli_free(struct rcli *cli) {
+  int i;
+
+  if (cli->path) {
+    free(cli->path);
+  }
+  if (cli->name) {
+    free(cli->name);
+  }
+  for (i = 0; i < cli->sz; ++i) {
+    rcli_free(&cli->sub_clis[i]);
+  }
 }
 
 int rcli_traverse(struct rcli *cli, int (*dir_op)(struct rcli*, struct dirent*, int i)) {
@@ -184,6 +203,8 @@ int rcli_run_cli(struct rcli *cli, int argc, char *argv[]) {
   // handle universal options
   // ignore unknown
   // get optind to the sub-command
+  // long opts?
+  // usage
   while ((c = getopt(argc, argv, "hv")) != -1) {
     switch (c) {
       case 'h':
@@ -201,7 +222,7 @@ int rcli_run_cli(struct rcli *cli, int argc, char *argv[]) {
   }
   // walk rcli to find subcommand
   sub_cli = rcli_find_subcli(cli, argc, argv);
-  printf("final cli: %s, %s\n", sub_cli->path, sub_cli->name);
+  printf("sub_cli to run: %s\n", sub_cli->path);
 
   // get options for subcommand
 
