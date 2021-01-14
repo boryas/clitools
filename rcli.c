@@ -200,6 +200,7 @@ int rcli_dump(char *fname) {
   char buf[4096];
   int fd;
   int sz;
+  int ret = 0;
 
   fd = open(fname, O_RDONLY);
   if (fd < 0) {
@@ -213,13 +214,19 @@ int rcli_dump(char *fname) {
         continue;
       }
       error(0, errno, "failed to read %s for dump\n", fname);
-      close(fd);
-      return errno;
+      ret = errno;
+      goto out;
     }
-    write(STDOUT_FILENO, buf, sz);
+    ret = write(STDOUT_FILENO, buf, sz);
+    if (ret < 0) {
+      error(0, errno, "failed to dump buffer from %s\n", fname);
+      ret = errno;
+      goto out;
+    }
   }
+out:
   close(fd);
-  return 0;
+  return ret;
 }
 
 int rcli_run_cli(struct rcli *cli, int argc, char *argv[]) {
@@ -227,7 +234,10 @@ int rcli_run_cli(struct rcli *cli, int argc, char *argv[]) {
   bool help = false;
   bool verbose = false;
   struct rcli *sub_cli;
-  char *run_f, *help_f, *usage_f;
+  char *run_f = NULL;
+  char *help_f = NULL;
+  char *usage_f = NULL;
+  int ret;
 
   // handle universal options
   // ignore unknown
@@ -257,29 +267,36 @@ int rcli_run_cli(struct rcli *cli, int argc, char *argv[]) {
     help_f = malloc(strlen(sub_cli->path) + strlen("help"));
     if (!help_f) {
       error(0, ENOMEM, "failed to allocate rcli help filename\n");
-      return ENOMEM;
+      ret = ENOMEM;
+      goto out;
     }
     help_f = strcpy(help_f, sub_cli->path);
     help_f = strcat(help_f, "help");
     rcli_dump(help_f);
-    return 0;
+    ret = 0;
+    goto out;
   }
 
   run_f = malloc(strlen(sub_cli->path) + strlen("run"));
   if (!run_f) {
     error(0, ENOMEM, "failed to allocate rcli run filename\n");
-    return ENOMEM;
+    ret = ENOMEM;
+    goto out;
   }
   run_f = strcpy(run_f, sub_cli->path);
   run_f = strcat(run_f, "run");
 
-  // get options for subcommand
+  execvp(run_f, argv + optind);
+  error(0, errno, "failed to execvp %s\n", run_f);
 
-  for (int i = optind; i < argc; ++i) {
-    printf("arg left: %s\n", argv[i]);
+out:
+  if (help_f) {
+    free(help_f);
   }
-  printf("execvp %s, %d\n", run_f, optind);
-  return execvp(run_f, argv + optind);
+  if (run_f) {
+    free(run_f);
+  }
+  return ret;
 }
 
 int main(int argc, char *argv[]) {
