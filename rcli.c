@@ -1,5 +1,7 @@
 #include <dirent.h>
 #include <errno.h>
+#include <error.h>
+#include <fcntl.h>
 #include <libgen.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -51,12 +53,13 @@ int rcli_init(struct rcli *cli, char *path) {
 
   memset(cli, 0, sizeof(*cli));
 
-  cli->path = malloc(path_len);
+  cli->path = malloc(path_len + 1);
   if (!cli->path) {
     ret = ENOMEM;
     goto out;
   }
   cli->path = strcpy(cli->path, path);
+  cli->path = strcat(cli->path, "/");
   cli->name = get_basename(path);
   if (!cli->name) {
     goto free_path;
@@ -128,13 +131,12 @@ int rcli_op_inc_sz(struct rcli *cli, struct dirent *dent, int i) {
 
 int rcli_op_add_subcli(struct rcli *cli, struct dirent *dent, int i) {
   int ret;
-  char *path = malloc(strlen(cli->path) + strlen(dent->d_name) + 1);
+  char *path = malloc(strlen(cli->path) + strlen(dent->d_name));
 
   if (!path) {
     return ENOMEM;
   }
   path = strcpy(path, cli->path);
-  path = strcat(path, "/");
   path = strcat(path, dent->d_name);
 
   ret = rcli_init(&cli->sub_clis[i], path);
@@ -194,11 +196,38 @@ struct rcli *rcli_find_subcli(struct rcli *cli, int argc, char *argv[]) {
   return cur;
 }
 
+int rcli_dump(char *fname) {
+  char buf[4096];
+  int fd;
+  int sz;
+
+  fd = open(fname, O_RDONLY);
+  if (fd < 0) {
+    error(0, errno, "failed to open %s for dump\n", fname);
+    return errno;
+  }
+
+  while ((sz = read(fd, buf, 4096))) {
+    if (sz < 0) {
+      if (errno == EINTR) {
+        continue;
+      }
+      error(0, errno, "failed to read %s for dump\n", fname);
+      close(fd);
+      return errno;
+    }
+    write(STDOUT_FILENO, buf, sz);
+  }
+  close(fd);
+  return 0;
+}
+
 int rcli_run_cli(struct rcli *cli, int argc, char *argv[]) {
   int c;
   bool help = false;
   bool verbose = false;
   struct rcli *sub_cli;
+  char *run_f, *help_f, *usage_f;
 
   // handle universal options
   // ignore unknown
@@ -222,12 +251,35 @@ int rcli_run_cli(struct rcli *cli, int argc, char *argv[]) {
   }
   // walk rcli to find subcommand
   sub_cli = rcli_find_subcli(cli, argc, argv);
-  printf("sub_cli to run: %s\n", sub_cli->path);
+  printf("sub_cli: %s\n", sub_cli->path);
+
+  if (help) {
+    help_f = malloc(strlen(sub_cli->path) + strlen("help"));
+    if (!help_f) {
+      error(0, ENOMEM, "failed to allocate rcli help filename\n");
+      return ENOMEM;
+    }
+    help_f = strcpy(help_f, sub_cli->path);
+    help_f = strcat(help_f, "help");
+    rcli_dump(help_f);
+    return 0;
+  }
+
+  run_f = malloc(strlen(sub_cli->path) + strlen("run"));
+  if (!run_f) {
+    error(0, ENOMEM, "failed to allocate rcli run filename\n");
+    return ENOMEM;
+  }
+  run_f = strcpy(run_f, sub_cli->path);
+  run_f = strcat(run_f, "run");
 
   // get options for subcommand
 
-  // re-init optind and run subcommand
-
+  for (int i = optind; i < argc; ++i) {
+    printf("arg left: %s\n", argv[i]);
+  }
+  printf("execvp %s, %d\n", run_f, optind);
+  return execvp(run_f, argv + optind);
 }
 
 int main(int argc, char *argv[]) {

@@ -1,0 +1,5 @@
+Create a new note
+
+Create a new note with the given name and open it with EDITOR
+options:
+-i <file>: use the contents of <file> as the initial contents of the note

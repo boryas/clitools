@@ -20,6 +20,7 @@ Makefile
 
 # Binaries
 rcli
+shm
 
 # ctags
 tags
