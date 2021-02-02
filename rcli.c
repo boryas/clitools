@@ -10,6 +10,8 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#define RCLI_BUF_4K 4096
+
 struct rcli {
   char *path;
   char *name;
@@ -157,8 +159,6 @@ int rcli_populate(struct rcli *cli) {
   int ret;
   int i = 0;
 
-  printf("rcli_populate %s\n", cli->path);
-
   ret = count_sub_clis(cli);
   if (ret < 0) {
     return ret;
@@ -196,11 +196,38 @@ struct rcli *rcli_find_subcli(struct rcli *cli, int argc, char *argv[]) {
   return cur;
 }
 
-int rcli_dump(char *fname) {
-  char buf[4096];
+static ssize_t rcli_stream(int fdin, int fdout) {
+  char buf[RCLI_BUF_4K];
+  ssize_t sz;
+  ssize_t streamed;
+
+  while ((sz = read(fdin, buf, RCLI_BUF_4K))) {
+    if (sz < 0) {
+      if (errno == EINTR)
+        continue;
+      // TODO return stream read error
+      error(0, errno, "failed to read %d\n", fdin);
+      return -errno;
+    }
+    while (sz) {
+      ssize_t w = write(fdout, buf, sz);
+      if (w < 0) {
+        if (errno == EINTR)
+          continue;
+        // TODO return stream write error
+        error(0, errno, "failed to write to %d\n", fdout);
+        return -errno;
+      }
+      streamed += w;
+      sz -= w;
+    }
+  }
+  return streamed;
+}
+
+static int rcli_dump(char *fname) {
   int fd;
-  int sz;
-  int ret = 0;
+  ssize_t ret;
 
   fd = open(fname, O_RDONLY);
   if (fd < 0) {
@@ -208,25 +235,48 @@ int rcli_dump(char *fname) {
     return errno;
   }
 
-  while ((sz = read(fd, buf, 4096))) {
-    if (sz < 0) {
-      if (errno == EINTR) {
-        continue;
-      }
-      error(0, errno, "failed to read %s for dump\n", fname);
-      ret = errno;
-      goto out;
-    }
-    ret = write(STDOUT_FILENO, buf, sz);
-    if (ret < 0) {
-      error(0, errno, "failed to dump buffer from %s\n", fname);
-      ret = errno;
-      goto out;
-    }
-  }
-out:
+  ret = rcli_stream(fd, STDOUT_FILENO);
+  if (ret < 0)
+    error(0, errno, "failed to dump %s\n", fname);
+
   close(fd);
-  return ret;
+  return 0;
+}
+
+static int rcli_do_help(struct rcli *cli) {
+  char *help_f;
+
+  help_f = malloc(strlen(cli->path) + strlen("help"));
+  if (!help_f) {
+    error(0, ENOMEM, "failed to allocate rcli help filename\n");
+    return ENOMEM;
+  }
+  help_f = strcpy(help_f, cli->path);
+  help_f = strcat(help_f, "help");
+
+  rcli_dump(help_f);
+
+  free(help_f);
+  return 0;
+}
+
+/*
+ * N.B. this ends with exec, so typically it won't return
+ */
+static int rcli_do_exec(struct rcli *cli, char **argv) {
+  char *run_f;
+
+  run_f = malloc(strlen(cli->path) + strlen("run"));
+  if (!run_f) {
+    error(0, ENOMEM, "failed to allocate rcli run filename\n");
+    return ENOMEM;
+  }
+  run_f = strcpy(run_f, cli->path);
+  run_f = strcat(run_f, "run");
+
+  execvp(run_f, argv);
+  error(0, errno, "failed to execvp %s\n", run_f);
+  return errno;
 }
 
 int rcli_run_cli(struct rcli *cli, int argc, char *argv[]) {
@@ -234,9 +284,6 @@ int rcli_run_cli(struct rcli *cli, int argc, char *argv[]) {
   bool help = false;
   bool verbose = false;
   struct rcli *sub_cli;
-  char *run_f = NULL;
-  char *help_f = NULL;
-  char *usage_f = NULL;
   int ret;
 
   // handle universal options
@@ -253,7 +300,7 @@ int rcli_run_cli(struct rcli *cli, int argc, char *argv[]) {
         verbose = true;
         break;
       case '?':
-        printf("unknown option '-%c'", optopt);
+        error(0, errno, "unknown option '-%c'", optopt);
         break;
       default:
         return -1;
@@ -261,41 +308,12 @@ int rcli_run_cli(struct rcli *cli, int argc, char *argv[]) {
   }
   // walk rcli to find subcommand
   sub_cli = rcli_find_subcli(cli, argc, argv);
-  printf("sub_cli: %s\n", sub_cli->path);
 
-  if (help) {
-    help_f = malloc(strlen(sub_cli->path) + strlen("help"));
-    if (!help_f) {
-      error(0, ENOMEM, "failed to allocate rcli help filename\n");
-      ret = ENOMEM;
-      goto out;
-    }
-    help_f = strcpy(help_f, sub_cli->path);
-    help_f = strcat(help_f, "help");
-    rcli_dump(help_f);
-    ret = 0;
-    goto out;
-  }
+  if (help)
+    return rcli_do_help(sub_cli);
 
-  run_f = malloc(strlen(sub_cli->path) + strlen("run"));
-  if (!run_f) {
-    error(0, ENOMEM, "failed to allocate rcli run filename\n");
-    ret = ENOMEM;
-    goto out;
-  }
-  run_f = strcpy(run_f, sub_cli->path);
-  run_f = strcat(run_f, "run");
-
-  execvp(run_f, argv + optind);
-  error(0, errno, "failed to execvp %s\n", run_f);
-
-out:
-  if (help_f) {
-    free(help_f);
-  }
-  if (run_f) {
-    free(run_f);
-  }
+  ret = rcli_do_exec(sub_cli, argv + optind);
+  // Don't expect this to actually execute. ^ execs
   return ret;
 }
 
