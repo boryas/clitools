@@ -2,6 +2,7 @@
 #include <error.h>
 #include <fcntl.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 static const char bote_home[] = "/home/bb/.bote/";
@@ -10,14 +11,15 @@ int main(int argc, char *argv[]) {
   int fd;
   char *fname;
 
+  // TODO auto usage
   if (argc < 2) {
     printf("usage: bote new <file>\n");
     return 1;
   }
 
-  fname = malloc(strlen(bote_home) + strlen(fname));
+  fname = malloc(strlen(bote_home) + strlen(argv[1]) + 1);
   if (!fname) {
-    error(1, ENOMEM, "failed to allocated note filename\n");
+    error(1, ENOMEM, "failed to allocate note filename\n");
   }
   fname = strcpy(fname, bote_home);
   fname = strcat(fname, argv[1]);
