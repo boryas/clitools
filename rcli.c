@@ -15,6 +15,7 @@
 struct rcli {
   char *path;
   char *name;
+  size_t depth;
   size_t sz;
   struct rcli *sub_clis;
 };
@@ -42,7 +43,7 @@ out:
   return ret;
 }
 
-int rcli_init(struct rcli *cli, char *path) {
+int rcli_init(struct rcli *cli, char *path, size_t depth) {
   char *cpy;
   char *name;
   int path_len = strlen(path);
@@ -66,6 +67,7 @@ int rcli_init(struct rcli *cli, char *path) {
   if (!cli->name) {
     goto free_path;
   }
+  cli->depth = depth;
 
   ret = 0;
   goto out;
@@ -141,7 +143,7 @@ int rcli_op_add_subcli(struct rcli *cli, struct dirent *dent, int i) {
   path = strcpy(path, cli->path);
   path = strcat(path, dent->d_name);
 
-  ret = rcli_init(&cli->sub_clis[i], path);
+  ret = rcli_init(&cli->sub_clis[i], path, cli->depth + 1);
 
   free(path);
   return ret;
@@ -309,6 +311,9 @@ int rcli_run_cli(struct rcli *cli, int argc, char *argv[]) {
   // walk rcli to find subcommand
   sub_cli = rcli_find_subcli(cli, argc, argv);
 
+  argc -= sub_cli->depth;
+  argv += sub_cli->depth;
+
   if (help)
     return rcli_do_help(sub_cli);
 
@@ -327,7 +332,7 @@ int main(int argc, char *argv[]) {
     exit(1);
   }
 
-  ret = rcli_init(&cli, argv[1]);
+  ret = rcli_init(&cli, argv[1], 0);
   if (ret) {
     exit(ret);
   }
@@ -337,7 +342,5 @@ int main(int argc, char *argv[]) {
     exit(ret);
   }
 
-  --argc;
-  ++argv;
   return rcli_run_cli(&cli, argc, argv);
 }
