@@ -1,0 +1,5 @@
+#!/bin/bash
+
+BOTE_DIR="/home/bb/.bote"
+
+ls -p $BOTE_DIR | grep /

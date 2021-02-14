@@ -1,0 +1,10 @@
+#!/bin/bash
+
+set -x
+
+tag=$1
+note=$2
+BOTE_HOME="/home/bb/.bote"
+TARGET="$BOTE_HOME/$tag/$note"
+
+rm -rf $TARGET

@@ -1,0 +1,4 @@
+bote tag del <tag> [note]
+
+if note is specified, remove tag from note, otherwise remove tag from all 
+notes bearing it.
