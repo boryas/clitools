@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
+#include <sys/wait.h>
 #include <unistd.h>
 
 #define RCLI_BUF_4K 4096
@@ -227,39 +228,53 @@ static ssize_t rcli_stream(int fdin, int fdout) {
   return streamed;
 }
 
-static int rcli_dump(char *fname) {
+static char *rcli_file_path(struct rcli *cli, char *fname) {
+  char *path;
+
+  path = malloc(strlen(cli->path) + strlen(fname));
+  if (!path) {
+    return NULL;
+  }
+  path = strcpy(path, cli->path);
+  path = strcat(path, fname);
+  return path;
+}
+
+static int rcli_dump(struct rcli *cli, char *fname) {
   int fd;
   ssize_t ret;
+  char *path;
 
-  fd = open(fname, O_RDONLY);
+  path = rcli_file_path(cli, fname);
+  if (!path) {
+    error(0, ENOMEM, "failed to allocate rcli filename %s\n", fname);
+    return -ENOMEM;
+  }
+
+  fd = open(path, O_RDONLY);
   if (fd < 0) {
-    error(0, errno, "failed to open %s for dump\n", fname);
-    return errno;
+    error(0, errno, "failed to open %s for dump\n", path);
+    ret = -errno;
+    goto out;
   }
 
   ret = rcli_stream(fd, STDOUT_FILENO);
   if (ret < 0)
-    error(0, errno, "failed to dump %s\n", fname);
+    error(0, errno, "failed to dump %s\n", path);
 
+out:
   close(fd);
-  return 0;
+  free(path);
+  return ret;
 }
 
 static int rcli_do_help(struct rcli *cli) {
-  char *help_f;
+  return rcli_dump(cli, "help");
+}
 
-  help_f = malloc(strlen(cli->path) + strlen("help"));
-  if (!help_f) {
-    error(0, ENOMEM, "failed to allocate rcli help filename\n");
-    return ENOMEM;
-  }
-  help_f = strcpy(help_f, cli->path);
-  help_f = strcat(help_f, "help");
-
-  rcli_dump(help_f);
-
-  free(help_f);
-  return 0;
+static int rcli_do_usage(struct rcli *cli) {
+  printf("\nUsage:\n");
+  return rcli_dump(cli, "usage");
 }
 
 /*
@@ -287,6 +302,7 @@ int rcli_run_cli(struct rcli *cli, int argc, char *argv[]) {
   bool verbose = false;
   struct rcli *sub_cli;
   int ret;
+  int status;
 
   // handle universal options
   // ignore unknown
@@ -317,9 +333,20 @@ int rcli_run_cli(struct rcli *cli, int argc, char *argv[]) {
   if (help)
     return rcli_do_help(sub_cli);
 
-  ret = rcli_do_exec(sub_cli, argv + optind);
-  // Don't expect this to actually execute. ^ execs
-  return ret;
+  ret = fork();
+  if (ret < 0)
+    return ret;
+  if (!ret) {
+    // child runs the cli
+    ret = rcli_do_exec(sub_cli, argv + optind);
+    // Don't expect this to actually execute. ^ execs
+    return ret;
+  } else {
+    // parent waits, in case of EINVAL (?)
+    ret = waitpid(ret, &status, 0);
+    if (WEXITSTATUS(status) == EINVAL)
+      return rcli_do_usage(sub_cli);
+  }
 }
 
 int main(int argc, char *argv[]) {
