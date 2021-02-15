@@ -1,0 +1,7 @@
+bote <command> [args]
+
+Commands are:
+list
+new
+del
+tag

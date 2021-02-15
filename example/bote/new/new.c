@@ -11,10 +11,8 @@ int main(int argc, char *argv[]) {
   int fd;
   char *fname;
 
-  // TODO auto usage
-  if (argc < 2) {
-    printf("usage: bote new <file>\n");
-    return 1;
+  if (argc != 2) {
+    error(EINVAL, EINVAL, "Bad arguments!\n");
   }
 
   fname = malloc(strlen(bote_home) + strlen(argv[1]) + 1);

@@ -1,5 +1,10 @@
 #!/bin/bash
 
+if [ $# -ne 2 ]
+then
+  exit 22
+fi
+
 note=$1
 tag=$2
 BOTE_HOME="/home/bb/.bote"
