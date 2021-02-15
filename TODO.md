@@ -1,7 +1,7 @@
 # TODO
 ## Easy
-* Signal printing usage file by EINVAL return code (run is no longer a naked exec, presumably)
 * Interface for trivial generic options like verbosity or debug (environment variables? well known files to consume?)
+* Auto generate recursive usage for dirs without run/usage
 
 ## Tricky
 Recursive option parsing as you traverse the tree.
