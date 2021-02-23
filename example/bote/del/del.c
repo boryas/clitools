@@ -5,7 +5,7 @@
 #include <string.h>
 #include <unistd.h>
 
-static const char bote_home[] = "/home/bb/.bote/";
+static const char bote_home[] = "~/.bote";
 
 int main(int argc, char *argv[]) {
   int ret;
