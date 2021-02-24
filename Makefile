@@ -12,5 +12,9 @@ shm: shm.c
 install: rcli
 	cp rcli /usr/local/bin
 
+install_bote:
+	rm -rf /etc/rcli/bote
+	cp -r example/bote /etc/rcli/
+
 clean:
 	rm -f rcli 2>/dev/null
