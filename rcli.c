@@ -13,6 +13,8 @@
 
 #define RCLI_BUF_4K 4096
 
+static const char RCLI_DIR[] = "/etc/rcli/";
+
 struct rcli {
   char *path;
   char *name;
@@ -27,13 +29,13 @@ static char *get_basename(char *path) {
   char *ret;
   int path_len = strlen(path);
 
-  cpy = malloc(path_len);
+  cpy = malloc(path_len + 1);
   if (!cpy) {
     return NULL;
   }
   cpy = strcpy(cpy, path);
   bn = basename(cpy);
-  ret = malloc(strlen(bn));
+  ret = malloc(strlen(bn) + 1);
   if (!ret) {
     ret = NULL;
     goto out;
@@ -47,7 +49,6 @@ out:
 int rcli_init(struct rcli *cli, char *path, size_t depth) {
   char *cpy;
   char *name;
-  int path_len = strlen(path);
   int ret;
 
   if (!cli) {
@@ -57,7 +58,7 @@ int rcli_init(struct rcli *cli, char *path, size_t depth) {
 
   memset(cli, 0, sizeof(*cli));
 
-  cli->path = malloc(path_len + 1);
+  cli->path = malloc(strlen(path) + 2);
   if (!cli->path) {
     ret = ENOMEM;
     goto out;
@@ -136,7 +137,7 @@ int rcli_op_inc_sz(struct rcli *cli, struct dirent *dent, int i) {
 
 int rcli_op_add_subcli(struct rcli *cli, struct dirent *dent, int i) {
   int ret;
-  char *path = malloc(strlen(cli->path) + strlen(dent->d_name));
+  char *path = malloc(strlen(cli->path) + strlen(dent->d_name) + 1);
 
   if (!path) {
     return ENOMEM;
@@ -231,7 +232,7 @@ static ssize_t rcli_stream(int fdin, int fdout) {
 static char *rcli_file_path(struct rcli *cli, char *fname) {
   char *path;
 
-  path = malloc(strlen(cli->path) + strlen(fname));
+  path = malloc(strlen(cli->path) + strlen(fname) + 1);
   if (!path) {
     return NULL;
   }
@@ -283,7 +284,7 @@ static int rcli_do_usage(struct rcli *cli) {
 static int rcli_do_exec(struct rcli *cli, char **argv) {
   char *run_f;
 
-  run_f = malloc(strlen(cli->path) + strlen("run"));
+  run_f = malloc(strlen(cli->path) + strlen("run") + 1);
   if (!run_f) {
     error(0, ENOMEM, "failed to allocate rcli run filename\n");
     return ENOMEM;
@@ -350,7 +351,7 @@ int rcli_run_cli(struct rcli *cli, int argc, char *argv[]) {
 }
 
 int main(int argc, char *argv[]) {
-  char *name;
+  char *cmd_path;
   struct rcli cli;
   int ret = 0;
 
@@ -359,7 +360,14 @@ int main(int argc, char *argv[]) {
     exit(1);
   }
 
-  ret = rcli_init(&cli, argv[1], 0);
+  cmd_path = malloc(strlen(RCLI_DIR) + strlen(argv[1]) + 1);
+  if (!cmd_path)
+    error(1, ENOMEM, "failed to allocate cli base path name\n");
+
+  cmd_path = strcpy(cmd_path, RCLI_DIR);
+  cmd_path = strcat(cmd_path, argv[1]);
+
+  ret = rcli_init(&cli, cmd_path, 0);
   if (ret) {
     exit(ret);
   }
