@@ -10,5 +10,11 @@ tag=$2
 BOTE_HOME="${HOME}/.bote"
 TAG_DIR="$BOTE_HOME/$tag"
 
-mkdir $TAG_DIR
-ln -s $BOTE_HOME/$note $TAG_DIR/$note
+mkdir -p $TAG_DIR
+orig_dir=$(pwd)
+cd $TAG_DIR
+# no matter what, need to pop up one.
+# After that, each / in the tags (no trailing slashes!) should pop up one more.
+dots="../$(echo $tag | grep -o / | tr '\n' '.' | sed 's|/.|../|g')"
+ln -s $dots$note $note
+cd $orig_dir
