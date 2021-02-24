@@ -10,4 +10,6 @@ rcli foo bar -g baz arg1
 Would let foo/bar/run consume -g???
 That might generalize the help, verbose, etc...
 
-WOW BUSTED SYMLINKS!!!
+## Bote
+test symlinks on other box (doesn't seem to work in android)
+make symlinks fully recursive (aka don't compute ..s, but walk back up from tag_dir to home, making symlinks)
