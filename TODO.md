@@ -9,3 +9,5 @@ i.e.,
 rcli foo bar -g baz arg1
 Would let foo/bar/run consume -g???
 That might generalize the help, verbose, etc...
+
+WOW BUSTED SYMLINKS!!!
