@@ -14,7 +14,8 @@ install: rcli
 
 install_bote:
 	rm -rf /etc/rcli/bote
-	cp -r example/bote /etc/rcli/
+	mkdir -p /etc/rcli/bote
+	cp -r example/bote/* /etc/rcli/bote
 
 clean:
 	rm -f rcli 2>/dev/null
