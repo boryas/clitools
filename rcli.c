@@ -1,6 +1,5 @@
 #include <dirent.h>
 #include <errno.h>
-#include <error.h>
 #include <fcntl.h>
 #include <libgen.h>
 #include <stdbool.h>
@@ -210,7 +209,7 @@ static ssize_t rcli_stream(int fdin, int fdout) {
       if (errno == EINTR)
         continue;
       // TODO return stream read error
-      error(0, errno, "failed to read %d\n", fdin);
+      fprintf(stderr, "failed to read %d: %d\n", fdin, errno);
       return -errno;
     }
     while (sz) {
@@ -219,7 +218,7 @@ static ssize_t rcli_stream(int fdin, int fdout) {
         if (errno == EINTR)
           continue;
         // TODO return stream write error
-        error(0, errno, "failed to write to %d\n", fdout);
+        fprintf(stderr, "failed to write to %d: %d\n", fdout, errno);
         return -errno;
       }
       streamed += w;
@@ -248,20 +247,20 @@ static int rcli_dump(struct rcli *cli, char *fname) {
 
   path = rcli_file_path(cli, fname);
   if (!path) {
-    error(0, ENOMEM, "failed to allocate rcli filename %s\n", fname);
+    fprintf(stderr, "failed to allocate rcli filename %s: %d\n", fname, errno);
     return -ENOMEM;
   }
 
   fd = open(path, O_RDONLY);
   if (fd < 0) {
-    error(0, errno, "failed to open %s for dump\n", path);
+    fprintf(stderr, "failed to open %s for dump: %d\n", path, errno);
     ret = -errno;
     goto out;
   }
 
   ret = rcli_stream(fd, STDOUT_FILENO);
   if (ret < 0)
-    error(0, errno, "failed to dump %s\n", path);
+    fprintf(stderr, "failed to dump %s: %d\n", path, errno);
 
 out:
   close(fd);
@@ -286,14 +285,14 @@ static int rcli_do_exec(struct rcli *cli, char **argv) {
 
   run_f = malloc(strlen(cli->path) + strlen("run") + 1);
   if (!run_f) {
-    error(0, ENOMEM, "failed to allocate rcli run filename\n");
+    fprintf(stderr, "failed to allocate rcli run filename: %d\n", errno);
     return ENOMEM;
   }
   run_f = strcpy(run_f, cli->path);
   run_f = strcat(run_f, "run");
 
   execvp(run_f, argv);
-  error(0, errno, "failed to execvp %s\n", run_f);
+  fprintf(stderr, "failed to execvp %s: %d\n", run_f, errno);
   return errno;
 }
 
@@ -319,7 +318,7 @@ int rcli_run_cli(struct rcli *cli, int argc, char *argv[]) {
         verbose = true;
         break;
       case '?':
-        error(0, errno, "unknown option '-%c'", optopt);
+        fprintf(stderr, "unknown option '-%c'", optopt);
         break;
       default:
         return -1;
@@ -361,8 +360,10 @@ int main(int argc, char *argv[]) {
   }
 
   cmd_path = malloc(strlen(RCLI_DIR) + strlen(argv[1]) + 1);
-  if (!cmd_path)
-    error(1, ENOMEM, "failed to allocate cli base path name\n");
+  if (!cmd_path) {
+    fprintf(stderr, "failed to allocate cli base path name\n");
+    exit(1);
+  }
 
   cmd_path = strcpy(cmd_path, RCLI_DIR);
   cmd_path = strcat(cmd_path, argv[1]);

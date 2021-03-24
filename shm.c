@@ -1,7 +1,7 @@
-#include <error.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 #include <sys/mman.h>
@@ -42,15 +42,17 @@ int main(int argc, char *argv[]) {
   fd = shm_open("/my_shmona", O_RDWR | O_CREAT,
       S_IWUSR | S_IRUSR | S_IWGRP | S_IRGRP | S_IROTH);
   if (fd < 0) {
-    error(1, errno, "failed to shm_open");
+    fprintf(stderr, "failed to shm_open: %d\n", errno);
+    exit(1);
   }
   ret = ftruncate(fd, sz);
   if (ret < 0) {
-    error(1, errno, "failed to ftruncate");
+    fprintf(stderr, "failed to ftruncate: %d\n", errno);
+    exit(1);
   }
   mapping = mmap(NULL, sz, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
   if (!mapping) {
-    error(1, errno, "failed to mmap");
+    fprintf(stderr, "failed to mmap: %d\n", errno);
   }
   close(fd);
 
@@ -58,7 +60,8 @@ int main(int argc, char *argv[]) {
     strcpy(mapping, argv[1]);
     ret = munmap(mapping, sz);
     if (ret < 0) {
-      error(1, errno, "failed to munmap");
+      fprintf(stderr, "failed to munmap: %d\n", errno);
+      exit(1);
     }
   } else {
     strncpy(buf, mapping, sz);
@@ -66,13 +69,14 @@ int main(int argc, char *argv[]) {
     tmp_errno = errno;
     ret2 = shm_unlink("/my_shmona");
     if (ret2 < 0) {
-      error(0, errno, "failed to shm_unlink");
+      fprintf(stderr, "failed to shm_unlink: %d\n", errno);
     }
     if (ret < 0) {
-      error(1, tmp_errno, "failed to munmap");
+      fprintf(stderr, "failed to munmap: %d\n", tmp_errno);
+      exit(1);
     }
     if (ret2 < 0) {
-      return 1;
+      exit(1);
     }
     printf("read shmem: %s\n", buf);
   }
