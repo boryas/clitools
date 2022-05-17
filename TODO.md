@@ -1,5 +1,7 @@
 # TODO
 ## Easy
+* ini-style config files
+* script to prepare/install a new command/subcommand
 * Interface for trivial generic options like verbosity or debug (environment variables? well known files to consume?)
 * Auto generate recursive usage for dirs without run/usage
 
