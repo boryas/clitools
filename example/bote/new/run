@@ -6,6 +6,7 @@ then
 fi
 
 note=$1
-BOTE_HOME="${HOME}/.bote"
+BOTE_HOME="$HOME/.bote"
+mkdir -p "$BOTE_HOME"
 
 $EDITOR $BOTE_HOME/$note

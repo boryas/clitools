@@ -1,6 +1,7 @@
 #!/bin/bash
 
-BOTE_HOME="${HOME}/.bote"
+BOTE_HOME="$HOME/.bote"
+mkdir -p "$BOTE_HOME"
 TAGGED=$BOTE_HOME
 if [ $# -gt 0 ]; then
   tag=$1
