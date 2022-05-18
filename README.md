@@ -106,3 +106,14 @@ After installing with its `make install`, with the invocation:
 `rcli bote new foo` rcli will find the `run` file in
 `example/bote/new` and execute it. But with `rcli bote new -h` rcli will
 print out `example/bote/new/help`.
+
+## TODO
+* Lib for ini config files
+* Tab completion for rcli itself
+* Tab completion for the rclis!
+* Interface for trivial generic options like verbosity or debug (environment variables? well known files to consume?)
+* Auto generate recursive usage for dirs without run/usage
+
+### Extra Tricky
+* Something generic for option parsing (unified with ini files)
+* Unify docs/man pages with help/usage
