@@ -22,6 +22,9 @@ Makefile
 rcli
 shm
 
+# Gen
+gen/
+
 # ctags
 tags
 

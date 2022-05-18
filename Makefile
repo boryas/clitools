@@ -13,10 +13,5 @@ shm: shm.c
 install: rcli
 	cp rcli $${HOME}/.local/bin/
 
-install_bote:
-	rm -rf ${RCLI_DIR}/bote
-	mkdir -p ${RCLI_DIR}/bote
-	cp -r example/bote/* ${RCLI_DIR}/bote
-
 clean:
 	rm -f rcli 2>/dev/null

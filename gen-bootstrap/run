@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [ $# -lt 2 ]
+then
+	echo "usage: gen <name> <dst> [run]"
+	exit 1
+fi
+
+NAME=$1
+DST=$2
+DIR="$DST/$NAME"
+mkdir -p "$DIR"
+
+# TODO:
+# blank project for:
+# Bash
+# Rust
+# Python
+# C
+# ... ? (haskell, racket, etc...)
+
+HELP="$DIR/help"
+cat <<EOF > "$HELP"
+short help
+
+longer more detailed help
+EOF
+
+USAGE="$DIR/usage"
+cat <<EOF > "$USAGE"
+$NAME <args> [opt-args]
+EOF
+
+RUN="$DIR/run"
+if [ $# -eq 3 ]
+then
+	cp "$3" "$DIR/run"
+else
+	cat <<EOF > "$RUN"
+#!/usr/bin/env bash
+echo "A boring executable."
+EOF
+	chmod a+x "$RUN"
+fi
+
+#TODO install via symlink
+MAKE="$DIR/Makefile"
+cat <<EOF > "$MAKE"
+RCLI_DIR=\$\${HOME}/.rcli/clis
+
+all: run
+
+install:
+	rm -rf "\${RCLI_DIR}/$NAME"
+	mkdir -p "\${RCLI_DIR}/$NAME"
+	cp -r * "\${RCLI_DIR}/$NAME"
+EOF
