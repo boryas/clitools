@@ -75,6 +75,11 @@ since it is redundant.
 After this, you can use the gen script with rcli directly:
 `rcli gen <name> <dst> [run]`
 
+## Tab Completion
+clitools implements automatic bash tab completion for the nested CLIs. To
+install it, source `rcli-completion.bash`. I have only tested it with
+zsh+bashcompinit
+
 ## Example
 There is a trivial, unfinished "note" app defined in example/ that supports
 creating, deleting, listing, and tagging notes. Its structure is:
@@ -109,8 +114,6 @@ print out `example/bote/new/help`.
 
 ## TODO
 * Lib for ini config files
-* Tab completion for rcli itself
-* Tab completion for the rclis!
 * Interface for trivial generic options like verbosity or debug (environment variables? well known files to consume?)
 * Auto generate recursive usage for dirs without run/usage
 
