@@ -77,8 +77,8 @@ After this, you can use the gen script with rcli directly:
 
 ## Tab Completion
 clitools implements automatic bash tab completion for the nested CLIs. To
-install it, source `rcli-completion.bash`. I have only tested it with
-zsh+bashcompinit
+install it, source `rcli-completion.bash`. I have only tested it with bash
+and zsh+bashcompinit.
 
 ## Example
 There is a trivial, unfinished "note" app defined in example/ that supports
