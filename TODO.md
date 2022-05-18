@@ -1,14 +1,10 @@
 # TODO
-## Easy
-* ini-style config files
-* document bootstrap and install more carefully
-* tab completion
+* Lib for ini config files
+* Tab completion for rcli itself
+* Tab completion for the rclis!
 * Interface for trivial generic options like verbosity or debug (environment variables? well known files to consume?)
 * Auto generate recursive usage for dirs without run/usage
 
-## Tricky
-Recursive option parsing as you traverse the tree.
-i.e.,
-rcli foo bar -g baz arg1
-Would let foo/bar/run consume -g???
-That might generalize the help, verbose, etc...
+## Extra Tricky
+* Something generic for option parsing (unified with ini files)
+* Unify docs/man pages with help/usage
