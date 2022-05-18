@@ -3,6 +3,7 @@ Makefile
 
 # Vim
 *.swp
+*.swo
 
 # Compiled Object files
 *.slo
