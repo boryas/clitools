@@ -2,7 +2,8 @@ CC=gcc
 CC_OPTS="-ggdb"
 RCLI_DIR=$${HOME}/.rcli
 INSTALL_DIR=$${HOME}/.local/bin
-ZSH_ENV=$${HOME}/.zshenv
+ZSHENV=$${HOME}/.zshenv
+ZSHRC=$${HOME}/.zshrc
 
 all: rcli shm
 
@@ -20,15 +21,20 @@ $(RCLI_DIR):
 
 env_install: env $(RCLI_DIR)
 	cp env $(RCLI_DIR)
-	[ -f $(ZSH_ENV) ] && grep -q '.rcli' $(ZSH_ENV) || echo 'source "$$HOME/.rcli/env"' >> $${HOME}/.zshenv
+	[ -f $(ZSHENV) ] && grep -q '.rcli' $(ZSHENV) || echo 'source "$$HOME/.rcli/env"' >> $(ZSHENV)
 
-install: rcli $(INSTALL_DIR) env_install
+comp_install: rcli-completion.bash $(RCLI_DIR)
+	cp rcli-completion.bash $(RCLI_DIR)
+	[ -f $(ZSHENV) ] && grep -q 'rcli-completion' $(ZSHRC) || echo 'source "$$HOME/.rcli/rcli-completion.bash"' >> $(ZSHRC)
+
+install: rcli $(INSTALL_DIR) env_install comp_install
 	cp rcli $(INSTALL_DIR)
 
 uninstall:
 	rm -f $(INSTALL_DIR)/rcli
 	rm -rf $(RCLI_DIR)
-	[ -f $(ZSH_ENV) ] && sed -i '/source.*rcli\/env/d' $(ZSH_ENV)
+	[ -f $(ZSHENV) ] && sed -i '/source.*rcli\/env/d' $(ZSHENV)
+	[ -f $(ZSHRC) ] && sed -i '/source.*rcli-completion/d' $(ZSHRC)
 
 clean:
 	rm -f rcli 2>/dev/null
