@@ -113,9 +113,10 @@ After installing with its `make install`, with the invocation:
 print out `example/bote/new/help`.
 
 ## TODO
+* completion for the command itself rather than only finding the command
+* gen for subcmds
 * Lib for ini config files
 * Interface for trivial generic options like verbosity or debug (environment variables? well known files to consume?)
-* gen for subcmds (?)
 
 ### Extra Tricky
 * Something generic for option parsing (unified with ini files)
